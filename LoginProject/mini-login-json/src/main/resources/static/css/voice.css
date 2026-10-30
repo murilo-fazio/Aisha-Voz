@@ -1,0 +1,58 @@
+/* voice.css — recurso de voz. Ajuste as cores para combinar com o tema do site. */
+
+/* Garante que elementos com o atributo "hidden" realmente sumam. */
+[hidden] { display: none !important; }
+
+.mic-btn {
+  flex: 0 0 auto;
+  min-width: 48px;
+  min-height: 48px;
+  padding: 0 0.75rem;
+  font-size: 1.3rem;
+  line-height: 1;
+  color: inherit;
+  background: transparent;
+  border: 1px solid currentColor;
+  border-radius: 10px;
+  cursor: pointer;
+}
+
+.mic-btn:focus-visible,
+.voice-options input:focus-visible {
+  outline: 3px solid currentColor;
+  outline-offset: 2px;
+}
+
+/* Enquanto estiver ouvindo */
+.mic-btn.listening {
+  color: #fff;
+  background: #c62828;
+  border-color: #c62828;
+  animation: mic-pulse 1.4s ease-out infinite;
+}
+
+@keyframes mic-pulse {
+  0%        { box-shadow: 0 0 0 0 rgba(198, 40, 40, 0.55); }
+  70%, 100% { box-shadow: 0 0 0 12px rgba(198, 40, 40, 0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mic-btn.listening { animation: none; }
+}
+
+.voice-options {
+  margin: 0.4rem 0 0;
+  font-size: 0.95rem;
+}
+
+.voice-options label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+}
+
+.voice-options input {
+  width: 1.1rem;
+  height: 1.1rem;
+}

@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<!--
+  Partes comuns a todas as telas internas.
+
+  Antes a barra lateral e o topo estavam copiados em home, sobre e contato.
+  Qualquer ajuste — um item de menu novo, o botao de tema — precisava ser feito
+  tres vezes, e bastava esquecer uma para a navegacao ficar diferente conforme
+  a pagina.
+-->
+<html lang="pt-BR" xmlns:th="http://www.thymeleaf.org">
+
+<head th:fragment="head(titulo)">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" th:content="${csrfToken}">
+    <title th:text="${titulo}">Aisha</title>
+
+    <!--
+      Tema e tamanho das letras aplicados ANTES de a pagina ser desenhada.
+      Em <body>, a tela pisca no tema errado por um instante a cada
+      carregamento — desagradavel para qualquer um, cansativo para quem ja tem
+      dificuldade com a tela.
+    -->
+    <script>
+        (function () {
+            try {
+                var raiz = document.documentElement;
+
+                var tema = localStorage.getItem('aisha-tema');
+                if (tema !== 'dark' && tema !== 'light') {
+                    // Sem escolha registrada, seguimos a preferencia do sistema.
+                    tema = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+                }
+                raiz.setAttribute('data-theme', tema);
+
+                var fonte = parseFloat(localStorage.getItem('aisha-fonte'));
+                if (fonte >= 16 && fonte <= 30) {
+                    raiz.style.fontSize = fonte + 'px';
+                }
+            } catch (e) {
+                /* Navegador com armazenamento bloqueado: fica o padrao do CSS. */
+            }
+        })();
+    </script>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" th:href="@{/css/style.css}">
+</head>
+
+<body>
+
+<!-- ── BARRA LATERAL ───────────────────────────────────────────────────── -->
+<aside th:fragment="sidebar(ativo)" class="sidebar" id="sidebar">
+
+    <div class="sidebar-header">
+        <div class="brand-logo">✦</div>
+        <span class="brand-name">Aisha</span>
+    </div>
+
+    <nav class="sidebar-nav">
+        <a th:href="@{/home}" class="nav-item" th:classappend="${ativo == 'chat'} ? 'active'">
+            <span class="nav-icon">💬</span> <span>Conversar</span>
+        </a>
+        <a th:href="@{/configuracoes}" class="nav-item" th:classappend="${ativo == 'config'} ? 'active'">
+            <span class="nav-icon">⚙️</span> <span>Configurações</span>
+        </a>
+        <a th:href="@{/sobre}" class="nav-item" th:classappend="${ativo == 'sobre'} ? 'active'">
+            <span class="nav-icon">📖</span> <span>Sobre</span>
+        </a>
+        <a th:href="@{/contato}" class="nav-item" th:classappend="${ativo == 'contato'} ? 'active'">
+            <span class="nav-icon">✉️</span> <span>Contato</span>
+        </a>
+    </nav>
+
+    <!-- Conversas so na tela de chat: e onde os dados existem e onde a lista
+         tem para onde levar. -->
+    <th:block th:if="${ativo == 'chat'}">
+        <a href="#" class="btn-new-chat" id="btn-new-chat">
+            <span class="nav-icon">＋</span> <span class="btn-new-chat-label">Nova conversa</span>
+        </a>
+
+        <p class="sidebar-section-title">Suas conversas</p>
+
+        <div class="conversations-list" id="conversations">
+            <p class="conversations-empty" th:if="${#lists.isEmpty(conversas)}">
+                Nenhuma conversa ainda.
+            </p>
+            <a th:each="c : ${conversas}"
+               class="conversation-item"
+               th:classappend="${c.id == conversaAtualId} ? 'active'"
+               th:href="@{'/conversa/' + ${c.id}}"
+               th:title="${c.title} ?: 'Nova conversa'"
+               th:text="${c.title} ?: 'Nova conversa'">Conversa</a>
+        </div>
+    </th:block>
+
+    <!-- Sem conversas para listar, um espacador segura o rodape embaixo. -->
+    <div th:if="${ativo != 'chat'}" style="flex:1"></div>
+
+    <div class="sidebar-footer">
+        <div class="user-avatar" th:text="${userInitials}">U</div>
+        <div class="user-info">
+            <div class="user-name" th:text="${userName}">Usuário</div>
+            <div class="user-role">Membro</div>
+        </div>
+    </div>
+
+</aside>
+
+<!-- ── TOPO ────────────────────────────────────────────────────────────── -->
+<header th:fragment="topbar(titulo)" class="topbar">
+    <div class="topbar-left">
+        <button class="hamburger" id="hamburger" aria-label="Abrir menu">
+            <span></span><span></span><span></span>
+        </button>
+        <span class="topbar-title" th:text="${titulo}">Aisha</span>
+    </div>
+
+    <div class="topbar-right">
+        <div class="topbar-controls">
+            <!-- Tamanho das letras nao tem botao: quem precisa aumentar pede a
+                 Aisha, que ajusta e confirma se ficou bom. O controle continua
+                 existindo no JavaScript, acionado por ela. -->
+            <button type="button" class="icon-btn" id="btn-theme"
+                    title="Alternar entre claro e escuro" aria-label="Alternar entre tema claro e escuro">
+                <!-- SVG em vez de emoji: emoji muda de desenho conforme o
+                     sistema operacional e nao acompanha a cor do texto. -->
+                <svg class="icon-moon" viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M20.5 13.3A8.5 8.5 0 0 1 10.7 3.5a8.5 8.5 0 1 0 9.8 9.8z"/>
+                </svg>
+                <svg class="icon-sun" viewBox="0 0 24 24" aria-hidden="true">
+                    <circle cx="12" cy="12" r="4.2"/>
+                    <path d="M12 2.4v2.2M12 19.4v2.2M4.2 12H2M22 12h-2.2M6.5 6.5 4.9 4.9M19.1 19.1l-1.6-1.6M17.5 6.5l1.6-1.6M4.9 19.1l1.6-1.6"/>
+                </svg>
+            </button>
+        </div>
+
+        <form th:action="@{/logout}" method="post" style="margin:0">
+            <input type="hidden" name="_csrf" th:value="${csrfToken}">
+            <button type="submit" class="btn btn-ghost">Sair</button>
+        </form>
+    </div>
+</header>
+
+</body>
+</html>

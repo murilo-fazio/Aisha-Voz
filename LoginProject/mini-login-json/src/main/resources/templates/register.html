@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="pt-BR" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/layout :: head('Aisha — Criar conta')}"></head>
+<body class="auth-page">
+
+<div class="auth-card">
+
+    <div class="auth-brand">
+        <div class="auth-brand-logo">✦</div>
+        <span class="auth-brand-name">Aisha</span>
+    </div>
+
+    <h1>Criar conta</h1>
+    <p class="auth-subtitle">Preencha os dados abaixo para começar</p>
+
+    <p th:if="${error}" class="error-msg" th:text="${error}" style="text-align:center; margin-bottom:16px;"></p>
+
+    <form th:action="@{/register}" th:object="${registerRequest}" method="post">
+        <input type="hidden" name="_csrf" th:value="${csrfToken}">
+        <div class="form-group">
+            <label for="name">Nome</label>
+            <input type="text" id="name" th:field="*{name}" placeholder="Seu nome completo" autofocus>
+            <small class="error-msg" th:errors="*{name}"></small>
+        </div>
+        <div class="form-group">
+            <label for="email">Email</label>
+            <input type="email" id="email" th:field="*{email}" placeholder="seuemail@email.com">
+            <small class="error-msg" th:errors="*{email}"></small>
+        </div>
+        <div class="form-group">
+            <label for="password">Senha</label>
+            <input type="password" id="password" th:field="*{password}" placeholder="Mínimo 6 caracteres">
+            <small class="error-msg" th:errors="*{password}"></small>
+        </div>
+        <button type="submit" class="btn btn-primary">Criar conta</button>
+    </form>
+
+    <p class="auth-footer">
+        Já tem conta? <a th:href="@{/login}">Fazer login</a>
+    </p>
+
+</div>
+
+</body>
+</html>

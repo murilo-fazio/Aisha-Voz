@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="pt-BR" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/layout :: head('Aisha — Conversar')}"></head>
+<!-- As iniciais chegam ao JavaScript pelo DOM: e o servidor que sabe o
+     nome do usuario, e o avatar das mensagens novas precisa combinar com o
+     das que vieram do banco. -->
+<body th:attr="data-user-initials=${userInitials}">
+
+<div class="sidebar-overlay" id="overlay"></div>
+
+<div class="app-layout">
+
+    <aside th:replace="~{fragments/layout :: sidebar('chat')}"></aside>
+
+    <div class="main-content">
+
+        <header th:replace="~{fragments/layout :: topbar('Aisha — sua companhia para conversar')}"></header>
+
+        <div class="chat-body">
+
+            <div class="messages-area" id="messages">
+                <!-- Boas-vindas so quando a conversa esta vazia. -->
+                <div class="chat-welcome" id="chat-welcome" th:if="${#lists.isEmpty(mensagens)}">
+                    <div class="chat-welcome-icon">✦</div>
+                    <h2>Olá, <span th:text="${userName}">Usuário</span>!</h2>
+                    <p>Sou a Aisha. Como posso te ajudar hoje?</p>
+                </div>
+
+                <div class="message bot" id="first-message" th:if="${#lists.isEmpty(mensagens)}">
+                    <div class="msg-avatar">✦</div>
+                    <div class="msg-bubble">Olá! Que bom ter você por aqui. Pode me contar como foi o seu dia,
+                        ou me pedir para deixar as letras maiores, se estiver difícil de ler.</div>
+                </div>
+
+                <!-- Historico vindo do banco: sobrevive a recarregar a pagina. -->
+                <div th:each="m : ${mensagens}"
+                     class="message"
+                     th:classappend="${m.fromUser} ? 'user' : 'bot'">
+                    <div class="msg-avatar" th:text="${m.fromUser} ? ${userInitials} : '✦'">✦</div>
+                    <div class="msg-bubble" th:text="${m.content}">mensagem</div>
+                </div>
+            </div>
+
+            <div class="chat-status-bar">
+                <p id="chat-status" aria-live="polite"></p>
+            </div>
+
+            <div class="input-wrapper">
+                <div class="input-row">
+                    <!-- textarea, e nao input: mensagem longa fica visivel
+                         inteira em vez de rolar para o lado. -->
+                    <textarea
+                        id="message-input"
+                        rows="1"
+                        placeholder="Escreva sua mensagem para a Aisha..."
+                        maxlength="1000"
+                        autocomplete="off"
+                        aria-label="Sua mensagem"></textarea>
+                    <!-- Gravacao pelo MediaRecorder; toque uma vez para gravar e
+                         novamente para enviar a fala para transcricao no backend. -->
+                    <button id="btn-mic" class="mic-btn" type="button"
+                            aria-label="Falar com a Aisha" aria-pressed="false"
+                            title="Toque para gravar; toque novamente para enviar" hidden>🎤</button>
+                    <button id="send-btn" type="button">Enviar</button>
+                </div>
+                <div class="voice-options" id="voice-options" hidden>
+                    <label>
+                        <input type="checkbox" id="chk-voz">
+                        Ler as respostas em voz alta
+                    </label>
+                </div>
+                <p class="input-hint">Enter envia · Shift+Enter pula linha · A Aisha pode cometer erros</p>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<link rel="stylesheet" th:href="@{/css/voice.css}">
+<script th:src="@{/js/chat.js}"></script>
+<script th:src="@{/js/app.js}"></script>
+<script th:src="@{/js/voice.js}"></script>
+</body>
+</html>

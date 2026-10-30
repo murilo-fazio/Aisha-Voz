@@ -1,0 +1,40 @@
+# ── Segredos ──────────────────────────────────────────────
+.env
+.env.*
+!.env.example
+
+# ── Dados locais (nunca versionar dado de usuário) ────────
+users.txt
+memory.json
+data/
+uploads/
+backups/
+
+# ── Java / Maven ──────────────────────────────────────────
+target/
+out/
+*.jar
+!**/.mvn/wrapper/maven-wrapper.jar
+
+# ── Python ────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+
+# ── Node ──────────────────────────────────────────────────
+node_modules/
+dist/
+
+# ── IDE ───────────────────────────────────────────────────
+.idea/
+.vscode/
+*.iml
+*.iws
+*.ipr
+
+# ── SO / diversos ─────────────────────────────────────────
+.DS_Store
+*.log
+*.zip

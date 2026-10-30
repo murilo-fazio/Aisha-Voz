@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="pt-BR" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/layout :: head('Aisha — Entrar')}"></head>
+<body class="auth-page">
+
+<div class="auth-card">
+
+    <div class="auth-brand">
+        <div class="auth-brand-logo">✦</div>
+        <span class="auth-brand-name">Aisha</span>
+    </div>
+
+    <h1>Bem-vindo de volta</h1>
+    <p class="auth-subtitle">Entre com sua conta para continuar</p>
+
+    <p th:if="${param.success}" class="success-msg">
+        ✓ Cadastro realizado com sucesso. Agora faça login.
+    </p>
+    <p th:if="${error}" class="error-msg" th:text="${error}" style="text-align:center; margin-bottom:16px;"></p>
+
+    <!-- Para onde o CsrfTokenInterceptor manda quem envia um formulario sem
+         token valido. Na pratica: a pagina ficou aberta ate a sessao expirar. -->
+    <p th:if="${param.expirado}" class="error-msg" style="text-align:center; margin-bottom:16px;">
+        Sua sessão expirou. Entre novamente para continuar.
+    </p>
+
+    <form th:action="@{/login}" th:object="${loginRequest}" method="post">
+        <input type="hidden" name="_csrf" th:value="${csrfToken}">
+        <div class="form-group">
+            <label for="email">Email</label>
+            <input type="email" id="email" th:field="*{email}" placeholder="seuemail@email.com" autofocus>
+        </div>
+        <div class="form-group">
+            <label for="password">Senha</label>
+            <input type="password" id="password" th:field="*{password}" placeholder="Sua senha">
+        </div>
+        <button type="submit" class="btn btn-primary">Entrar</button>
+    </form>
+
+    <p class="auth-footer">
+        Não tem conta? <a th:href="@{/register}">Criar conta grátis</a>
+    </p>
+
+</div>
+
+</body>
+</html>

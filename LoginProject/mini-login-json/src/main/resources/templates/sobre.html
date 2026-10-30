@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="pt-BR" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/layout :: head('Aisha — Sobre')}"></head>
+<body>
+
+<div class="sidebar-overlay" id="overlay"></div>
+
+<div class="app-layout">
+
+    <aside th:replace="~{fragments/layout :: sidebar('sobre')}"></aside>
+
+    <!-- ── MAIN CONTENT ── -->
+    <div class="main-content">
+
+        <header th:replace="~{fragments/layout :: topbar('Sobre a Aisha')}"></header>
+
+        <div class="page-body">
+
+            <div class="page-header">
+                <span class="page-tag">Sobre o sistema</span>
+                <h1 class="page-title">O que é a Aisha?</h1>
+                <p class="page-desc">
+                    Aisha é um assistente virtual inteligente, sarcástico e cheio de personalidade.
+                    Desenvolvido com tecnologias modernas para oferecer conversas envolventes e respostas precisas.
+                </p>
+            </div>
+
+            <div class="about-grid">
+                <div class="about-card">
+                    <span class="about-card-icon">🤖</span>
+                    <h3>Inteligência Artificial</h3>
+                    <p>Aisha utiliza modelos de linguagem de última geração (LLM) via API da OpenAI para gerar respostas contextuais, precisas e com personalidade única.</p>
+                </div>
+                <div class="about-card">
+                    <span class="about-card-icon">🧠</span>
+                    <h3>Memória de Conversas</h3>
+                    <p>O sistema sumariza automaticamente o histórico de conversas e persiste no banco de dados MySQL, permitindo que a Aisha "lembre" de interações anteriores.</p>
+                </div>
+                <div class="about-card">
+                    <span class="about-card-icon">🔐</span>
+                    <h3>Autenticação Segura</h3>
+                    <p>Sistema completo de login e registro com sessões gerenciadas pelo Spring Boot, garantindo que apenas usuários autenticados acessem o chat.</p>
+                </div>
+                <div class="about-card">
+                    <span class="about-card-icon">⚡</span>
+                    <h3>Arquitetura Moderna</h3>
+                    <p>Backend em Java com Spring Boot expõe uma API REST. Um microsserviço Python com Flask integra a comunicação com a OpenAI de forma desacoplada.</p>
+                </div>
+            </div>
+
+            <div class="tech-stack">
+                <h3>Tecnologias utilizadas</h3>
+                <div class="tech-pills">
+                    <div class="tech-pill"><span>☕</span> Java 17</div>
+                    <div class="tech-pill"><span>🍃</span> Spring Boot</div>
+                    <div class="tech-pill"><span>🐍</span> Python 3</div>
+                    <div class="tech-pill"><span>🌶️</span> Flask</div>
+                    <div class="tech-pill"><span>🤖</span> OpenAI API</div>
+                    <div class="tech-pill"><span>🗄️</span> MySQL</div>
+                    <div class="tech-pill"><span>🍃</span> Thymeleaf</div>
+                    <div class="tech-pill"><span>🎨</span> CSS3</div>
+                    <div class="tech-pill"><span>⚡</span> JavaScript</div>
+                    <div class="tech-pill"><span>📦</span> Maven</div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<script th:src="@{/js/app.js}"></script>
+</body>
+</html>

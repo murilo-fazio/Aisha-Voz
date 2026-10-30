@@ -1,0 +1,127 @@
+# ==============================================================================
+# Aisha — orquestracao do ambiente completo (Postgres + servico de IA + app Java)
+# ==============================================================================
+# Uso rapido:
+#   cp .env.example .env   # preencha os segredos antes de subir
+#   make up                # sobe apenas postgres + ai-service (modo dev)
+#   make up-full           # sobe tambem o app Spring Boot (perfil "full")
+#
+# A chave "version:" foi removida de proposito: e obsoleta nas versoes atuais
+# do Compose e so gera aviso no terminal.
+# ==============================================================================
+
+name: aisha
+
+services:
+
+  # ---------------------------------------------------------------------------
+  # Banco de dados — dono do esquema e o Java (via Flyway); o Python so consome.
+  # ---------------------------------------------------------------------------
+  postgres:
+    image: postgres:17-alpine
+    container_name: aisha-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-aisha}
+      POSTGRES_USER: ${POSTGRES_USER:-aisha}
+      # Sem default: se a senha nao estiver no .env, o Compose aborta com esta mensagem.
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?defina POSTGRES_PASSWORD no arquivo .env (copie de .env.example)}
+    # Sem 'ports' por padrao: o banco so precisa ser alcancavel pelos outros
+    # containers, pela rede interna do compose, onde o host e "postgres".
+    # Publicar 5432 no host so faz sentido para conectar DBeaver/IDE/psql —
+    # e para isso existe o docker-compose.tools.yml (make up).
+    # Para abrir um psql sem publicar porta nenhuma: make db
+    volumes:
+      - aisha-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      # Os outros servicos so sobem depois que o banco responde de verdade,
+      # nao apenas quando o container existe.
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-aisha} -d ${POSTGRES_DB:-aisha}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
+
+  # ---------------------------------------------------------------------------
+  # Servico de IA (Flask + OpenRouter) — permanece separado do Java de proposito.
+  # ---------------------------------------------------------------------------
+  ai-service:
+    build: ./ai-service
+    container_name: aisha-ai-service
+    restart: unless-stopped
+    environment:
+      # Segredos: sem default, falham no boot se ausentes.
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:?defina OPENROUTER_API_KEY no arquivo .env (copie de .env.example)}
+      OPENROUTER_BASE_URL: ${OPENROUTER_BASE_URL:-https://openrouter.ai/api/v1}
+      AI_INTERNAL_TOKEN: ${AI_INTERNAL_TOKEN:?defina AI_INTERNAL_TOKEN no arquivo .env (copie de .env.example)}
+      CHAT_MODEL: ${CHAT_MODEL:-google/gemini-3.8-flash}
+      STT_MODEL: ${STT_MODEL:-openai/whisper-1}
+      TTS_MODEL: ${TTS_MODEL:-microsoft/mai-voice-2.1}
+      TTS_VOICE: ${TTS_VOICE:-pt-BR-Luana:MAI-Voice-2.1}
+      AUDIO_TIMEOUT_SECONDS: ${AUDIO_TIMEOUT_SECONDS:-120}
+      VOICE_MAX_AUDIO_MB: ${VOICE_MAX_AUDIO_MB:-10}
+      TTS_MAX_CHARS: ${TTS_MAX_CHARS:-4000}
+      AI_REASONING_EFFORT: ${AI_REASONING_EFFORT:-low}
+      AI_MAX_TOKENS: ${AI_MAX_TOKENS:-800}
+      AI_SUMMARY_MAX_TOKENS: ${AI_SUMMARY_MAX_TOKENS:-500}
+      # Acesso ao Postgres pela rede interna do Compose: o host e o nome do
+      # servico ("postgres"), nunca localhost — localhost dentro do container
+      # seria o proprio container do Python.
+      PGHOST: postgres
+      PGPORT: "5432"
+      POSTGRES_DB: ${POSTGRES_DB:-aisha}
+      POSTGRES_USER: ${POSTGRES_USER:-aisha}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?defina POSTGRES_PASSWORD no arquivo .env (copie de .env.example)}
+    # Sem 'ports' por padrao. O servico de IA nunca foi feito para ser chamado
+    # de fora: quem fala com ele e o backend Java, pela rede interna, com o
+    # AI_INTERNAL_TOKEN. Alem disso ele gasta credito do OpenRouter a cada
+    # chamada. Para depurar direto nele, use o docker-compose.tools.yml.
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      # Usa o proprio Python da imagem: evita depender de curl/wget estarem instalados.
+      test: ["CMD-SHELL", "python -c \"import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:5000/health', timeout=3).status == 200 else 1)\""]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  # ---------------------------------------------------------------------------
+  # Aplicacao web Spring Boot.
+  #
+  # POR QUE ESTA EM 'profiles: [full]':
+  # No dia a dia o desenvolvedor roda o Spring Boot direto pela IDE (com debug e
+  # hot reload) apontando para o Postgres e o ai-service containerizados. Se este
+  # servico subisse por padrao, haveria dois apps disputando a porta 8080 e o
+  # mesmo banco. Ficando atras do perfil "full", o `make up` padrao sobe apenas as
+  # dependencias, e `make up-full` (docker compose --profile full up) sobe a
+  # stack inteira — util para validar o build final ou demonstrar o sistema.
+  # ---------------------------------------------------------------------------
+  app:
+    build: ./LoginProject/mini-login-json
+    container_name: aisha-app
+    restart: unless-stopped
+    profiles: [full]
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-aisha}
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-aisha}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:?defina POSTGRES_PASSWORD no arquivo .env (copie de .env.example)}
+      # Nome do servico na rede interna, nao localhost.
+      AI_SERVICE_URL: http://ai-service:5000
+      AI_INTERNAL_TOKEN: ${AI_INTERNAL_TOKEN:?defina AI_INTERNAL_TOKEN no arquivo .env (copie de .env.example)}
+      AI_READ_TIMEOUT_SECONDS: ${AI_READ_TIMEOUT_SECONDS:-150}
+    ports:
+      # UNICA porta publicada no host: toda a plataforma (front-end, backend e,
+      # por tras dele, IA e banco) e alcancada por aqui.
+      - "${APP_PORT:-8080}:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      ai-service:
+        condition: service_healthy
+
+volumes:
+  # Dados do Postgres sobrevivem a `down`; so somem com `make clean` (down -v).
+  aisha-pgdata:
+    name: aisha-pgdata

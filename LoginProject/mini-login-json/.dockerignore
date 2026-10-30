@@ -1,0 +1,7 @@
+# Nada aqui pode entrar no contexto de build: ou e artefato gerado, ou e
+# arquivo de IDE, ou e segredo.
+target/
+.idea/
+*.iml
+.git
+.env

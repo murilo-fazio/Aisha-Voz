@@ -1,0 +1,7 @@
+# Arquivos que rodam ou sao lidos no Linux (Umbrel, containers) sempre com
+# quebra de linha LF, mesmo num checkout Windows com core.autocrlf=true.
+# Com CRLF, "#!/usr/bin/env bash" vira "bash\r" e o script nao roda.
+*.sh            text eol=lf
+mvnw            text eol=lf
+Dockerfile      text eol=lf
+deploy/**       text eol=lf

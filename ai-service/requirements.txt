@@ -1,0 +1,13 @@
+# Dependencias do servico de IA da Aisha.
+# Apenas o que app.py importa de fato. Versoes fixadas em faixa segura (~=).
+#
+# Removidos da arquitetura anterior (nao sao usados): langchain, ollama,
+# tinydb e mysql-connector-python.
+
+Flask~=3.1
+Flask-Cors~=6.0
+openai~=2.54
+psycopg[binary]~=3.3
+psycopg-pool~=3.3
+python-dotenv~=1.2
+gunicorn~=26.2

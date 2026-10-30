@@ -1,0 +1,72 @@
+# ==============================================================================
+# Monta as imagens da Aisha e publica no GitHub Container Registry (GHCR).
+#
+# O servidor de producao nao compila nada: ele so baixa estas imagens
+# (deploy/scripts/deploy.sh). Compilar o Spring com Maven la seria lento e
+# exigiria JDK e Maven instalados no Umbrel.
+#
+# Tags publicadas para cada imagem:
+#   latest       ultimo build da main (o que o servidor usa por padrao)
+#   sha-xxxxxxx  build de um commit especifico, para voltar versao
+# ==============================================================================
+name: Publicar imagens
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "LoginProject/mini-login-json/**"
+      - "ai-service/**"
+      - ".github/workflows/publish.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  publicar:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - imagem: aisha-app
+            contexto: LoginProject/mini-login-json
+          - imagem: aisha-ai-service
+            contexto: ai-service
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Login no GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # Nome em minusculas fixo: o GHCR nao aceita maiusculas, e o dono do
+      # repositorio e "Projeto-Aisha".
+      - name: Tags
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/projeto-aisha/${{ matrix.imagem }}
+          tags: |
+            type=raw,value=latest
+            type=sha,prefix=sha-
+
+      # So amd64: o servidor e um PC x86. Cache do GitHub Actions para nao
+      # baixar todas as dependencias do Maven a cada build.
+      - name: Build e push
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ matrix.contexto }}
+          platforms: linux/amd64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha,scope=${{ matrix.imagem }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.imagem }}

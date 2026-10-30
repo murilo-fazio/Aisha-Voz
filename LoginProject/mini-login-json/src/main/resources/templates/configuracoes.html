@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="pt-BR" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/layout :: head('Aisha — Configurações')}"></head>
+<body>
+
+<div class="sidebar-overlay" id="overlay"></div>
+
+<div class="app-layout">
+
+    <aside th:replace="~{fragments/layout :: sidebar('config')}"></aside>
+
+    <div class="main-content">
+
+        <header th:replace="~{fragments/layout :: topbar('Configurações')}"></header>
+
+        <div class="page-body">
+
+            <div class="page-header">
+                <p class="page-tag">Sua conta</p>
+                <h1 class="page-title">Configurações</h1>
+                <p class="page-desc">Aqui você ajusta os seus dados. O tamanho das letras e o
+                    tema claro ou escuro ficam nos botões do topo da tela — ou é só pedir para a Aisha.</p>
+            </div>
+
+            <div class="settings-layout">
+
+                <p th:if="${sucesso}" class="success-msg" th:text="${sucesso}"></p>
+                <p th:if="${erro}" class="error-msg" th:text="${erro}"></p>
+
+                <!-- ── Perfil ─────────────────────────────────────────── -->
+                <section class="settings-card">
+                    <div class="settings-identity">
+                        <div class="settings-avatar" th:text="${userInitials}">U</div>
+                        <div>
+                            <div class="user-name" th:text="${userName}">Usuário</div>
+                            <div class="settings-identity-email" th:text="${email}">email@exemplo.com</div>
+                        </div>
+                    </div>
+
+                    <h2>Seu nome</h2>
+                    <p class="settings-help">É como a Aisha vai te chamar durante as conversas.</p>
+
+                    <form th:action="@{/configuracoes/perfil}" method="post">
+                        <input type="hidden" name="_csrf" th:value="${csrfToken}">
+                        <div class="form-group">
+                            <label for="name">Nome</label>
+                            <input type="text" id="name" name="name" th:value="${userName}"
+                                   maxlength="120" required>
+                        </div>
+                        <button type="submit" class="btn btn-primary">Salvar nome</button>
+                    </form>
+
+                    <div class="form-group" style="margin-top:26px">
+                        <label for="email-readonly">E-mail</label>
+                        <span class="settings-readonly" id="email-readonly" th:text="${email}">email@exemplo.com</span>
+                        <p class="settings-note">O e-mail é o seu login e por enquanto não pode ser trocado.</p>
+                    </div>
+                </section>
+
+                <!-- ── Senha ──────────────────────────────────────────── -->
+                <section class="settings-card">
+                    <h2>Trocar a senha</h2>
+                    <p class="settings-help">Para trocar, confirme a senha que você usa hoje.
+                        Isso protege sua conta caso alguém sente no computador com a tela aberta.</p>
+
+                    <form th:action="@{/configuracoes/senha}" method="post">
+                        <input type="hidden" name="_csrf" th:value="${csrfToken}">
+
+                        <div class="form-group">
+                            <label for="currentPassword">Senha atual</label>
+                            <input type="password" id="currentPassword" name="currentPassword"
+                                   autocomplete="current-password" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="newPassword">Nova senha</label>
+                            <input type="password" id="newPassword" name="newPassword"
+                                   autocomplete="new-password" minlength="6" required>
+                            <p class="settings-note">Pelo menos 6 caracteres.</p>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="confirmPassword">Repita a nova senha</label>
+                            <input type="password" id="confirmPassword" name="confirmPassword"
+                                   autocomplete="new-password" minlength="6" required>
+                        </div>
+
+                        <button type="submit" class="btn btn-primary">Salvar nova senha</button>
+                    </form>
+                </section>
+
+            </div>
+        </div>
+    </div>
+</div>
+
+<script th:src="@{/js/app.js}"></script>
+</body>
+</html>

@@ -1,0 +1,180 @@
+# ==============================================================================
+# Aisha — ambiente de PRODUCAO (servidor Umbrel)
+# ==============================================================================
+# Esta pasta (deploy/) e copiada inteira para /home/umbrel/aisha no servidor.
+# O docker-compose.yml da raiz do repositorio continua sendo o de
+# desenvolvimento; este aqui nao compila nada, so baixa as imagens prontas que o
+# GitHub Actions publica no GHCR (.github/workflows/publish.yml).
+#
+# POR QUE NENHUM SERVICO TEM 'ports':
+# O publico chega pelo Cloudflare Tunnel. O cloudflared abre uma conexao de
+# DENTRO do servidor para a Cloudflare, e o trafego volta por ela ate o nginx,
+# pela rede interna do compose. Nada escuta em porta do host: o firewall e o
+# roteador continuam fechados, e a porta 80 do painel do Umbrel nao conflita.
+#
+# Uso: veja deploy/README.md. No dia a dia, apenas ./scripts/deploy.sh
+# ==============================================================================
+
+name: aisha
+
+# Comum a todos os servicos. Sem rotacao, o driver json-file do Docker guarda
+# log para sempre e, com o tempo, enche o disco do Umbrel: aqui cada container
+# fica com no maximo 3 arquivos de 10 MB.
+x-padrao: &padrao
+  restart: unless-stopped
+  logging:
+    driver: json-file
+    options:
+      max-size: "10m"
+      max-file: "3"
+
+services:
+
+  # ---------------------------------------------------------------------------
+  # Banco. Bind mount em ./data/postgres (e nao volume nomeado): os dados ficam
+  # dentro de /home/umbrel/aisha, que e a parte do disco que sobrevive as
+  # atualizacoes do umbrelOS, e e facil ver onde estao.
+  # ---------------------------------------------------------------------------
+  postgres:
+    image: postgres:17-alpine
+    container_name: aisha-postgres
+    <<: *padrao
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-aisha}
+      POSTGRES_USER: ${POSTGRES_USER:-aisha}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?defina POSTGRES_PASSWORD no .env}
+    volumes:
+      - ./data/postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-aisha} -d ${POSTGRES_DB:-aisha}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
+
+  # ---------------------------------------------------------------------------
+  # Servico de IA (Flask + OpenRouter).
+  # ---------------------------------------------------------------------------
+  ai-service:
+    image: ghcr.io/projeto-aisha/aisha-ai-service:${AISHA_TAG:-latest}
+    container_name: aisha-ai-service
+    <<: *padrao
+    environment:
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:?defina OPENROUTER_API_KEY no .env}
+      OPENROUTER_BASE_URL: ${OPENROUTER_BASE_URL:-https://openrouter.ai/api/v1}
+      # Aparece no painel do OpenRouter como origem das chamadas.
+      OPENROUTER_APP_URL: https://${AISHA_DOMAIN:?defina AISHA_DOMAIN no .env}
+      AI_INTERNAL_TOKEN: ${AI_INTERNAL_TOKEN:?defina AI_INTERNAL_TOKEN no .env}
+      CHAT_MODEL: ${CHAT_MODEL:-google/gemini-3.8-flash}
+      AI_REASONING_EFFORT: ${AI_REASONING_EFFORT:-low}
+      AI_MAX_TOKENS: ${AI_MAX_TOKENS:-800}
+      AI_SUMMARY_MAX_TOKENS: ${AI_SUMMARY_MAX_TOKENS:-500}
+      CORS_ORIGINS: https://${AISHA_DOMAIN}
+      PGHOST: postgres
+      PGPORT: "5432"
+      POSTGRES_DB: ${POSTGRES_DB:-aisha}
+      POSTGRES_USER: ${POSTGRES_USER:-aisha}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    # O healthcheck vem da propria imagem (HEALTHCHECK no Dockerfile).
+
+  # ---------------------------------------------------------------------------
+  # Aplicacao web Spring Boot. Dona do esquema: as migracoes do Flyway rodam no
+  # boot, entao uma imagem nova com migracao nova atualiza o banco sozinha.
+  # ---------------------------------------------------------------------------
+  app:
+    image: ghcr.io/projeto-aisha/aisha-app:${AISHA_TAG:-latest}
+    container_name: aisha-app
+    <<: *padrao
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-aisha}
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-aisha}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
+      AI_SERVICE_URL: http://ai-service:5000
+      AI_INTERNAL_TOKEN: ${AI_INTERNAL_TOKEN}
+      AI_READ_TIMEOUT_SECONDS: ${AI_READ_TIMEOUT_SECONDS:-150}
+      # O navegador fala HTTPS com a Cloudflare: o cookie de sessao so pode
+      # viajar por HTTPS.
+      SESSION_COOKIE_SECURE: "true"
+      # O Spring esta atras de cloudflared + nginx e recebe HTTP puro. Com
+      # 'framework' ele le X-Forwarded-Proto/Host (enviados pelo nginx) e sabe
+      # que a requisicao original era https://dominio.
+      SERVER_FORWARD_HEADERS_STRATEGY: framework
+    depends_on:
+      postgres:
+        condition: service_healthy
+      ai-service:
+        condition: service_healthy
+    # A imagem nao tem actuator nem garantia de curl: o bash da propria imagem
+    # faz um GET em /login (pagina publica) e exige status 200. start_period
+    # longo porque o Flyway roda as migracoes no boot.
+    healthcheck:
+      test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/8080 && printf 'GET /login HTTP/1.0\\r\\nHost: localhost\\r\\n\\r\\n' >&3 && head -n1 <&3 | grep -q ' 200'"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 90s
+
+  # ---------------------------------------------------------------------------
+  # Porta de entrada interna: limite de requisicoes, cabecalhos de seguranca e
+  # compressao. Sem certificado: o HTTPS termina na Cloudflare.
+  # ---------------------------------------------------------------------------
+  nginx:
+    image: nginx:1.29-alpine
+    container_name: aisha-nginx
+    <<: *padrao
+    volumes:
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+    # So abre a porta de entrada quando o Spring ja responde: antes disso o
+    # visitante veria 502.
+    depends_on:
+      app:
+        condition: service_healthy
+
+  # ---------------------------------------------------------------------------
+  # Cloudflare Tunnel. O destino (http://nginx:80) e configurado no painel da
+  # Cloudflare, em "Public Hostname"; aqui so vai o token do tunel.
+  # ---------------------------------------------------------------------------
+  cloudflared:
+    # Versao fixa: 'latest' trocaria o cloudflared sem aviso no proximo pull.
+    # Para atualizar, troque a tag (https://hub.docker.com/r/cloudflare/cloudflared/tags).
+    image: cloudflare/cloudflared:2026.10.5
+    container_name: aisha-cloudflared
+    <<: *padrao
+    command: tunnel --no-autoupdate run
+    environment:
+      TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN:?defina CLOUDFLARE_TUNNEL_TOKEN no .env}
+    depends_on:
+      - nginx
+
+  # ---------------------------------------------------------------------------
+  # Backup diario do banco. Container proprio, e nao o crontab do Umbrel: o que
+  # se instala no sistema fora de /home/umbrel pode sumir numa atualizacao.
+  # Usa a mesma imagem do Postgres para o pg_dump ter a mesma versao do banco.
+  # ---------------------------------------------------------------------------
+  backup:
+    image: postgres:17-alpine
+    container_name: aisha-backup
+    <<: *padrao
+    environment:
+      PGHOST: postgres
+      PGDATABASE: ${POSTGRES_DB:-aisha}
+      PGUSER: ${POSTGRES_USER:-aisha}
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+      BACKUP_KEEP_DAYS: ${BACKUP_KEEP_DAYS:-14}
+      TZ: ${TZ:-America/Sao_Paulo}
+    volumes:
+      - ./scripts:/scripts:ro
+      - ./backups:/backups
+    # crond do busybox, que ja vem no alpine. -f mantem em primeiro plano.
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        echo "${BACKUP_CRON:-0 3 * * *} /bin/sh /scripts/backup.sh >> /proc/1/fd/1 2>&1" | crontab -
+        exec crond -f -l 8
+    depends_on:
+      postgres:
+        condition: service_healthy
